@@ -1,0 +1,61 @@
+.header {
+  background-color: #222;
+  color: white;
+  padding: 0.8rem 2rem; /* Un poco menos de padding vertical */
+  display: flex;
+  align-items: center; /* Alinea verticalmente */
+  justify-content: space-between;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 1rem; /* Espacio entre elementos cuando se rompe a varias líneas */
+}
+
+.header-title-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0; /* Evita que se comprima */
+}
+
+.header-icon {
+  width: 40px;
+  height: 40px;
+  vertical-align: middle;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.header-nav {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  margin: 0; /* Elimina el margen extra */
+  flex: 1;
+  justify-content: center;
+}
+
+.header-nav-link {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity 0.3s ease;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  font-size: 1rem;
+}
+
+.header-nav-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.header-user-menu {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
