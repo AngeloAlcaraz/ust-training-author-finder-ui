@@ -91,6 +91,11 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const addFavorite = useCallback(
     async (key: string, userEmail: string, token: string | null, authorId: string) => {
+      if (favorites.has(key)) {
+        console.log('El favorito ya existe.');
+        return; // No intentar agregar si ya existe
+      }
+
       try {
         const res = await fetch(`https://openlibrary.org/authors/${authorId}.json`)
         if (!res.ok) throw new Error('Failed to fetch author data')
@@ -133,14 +138,15 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           throw new Error(errorData.message ?? 'Failed to add favorite')
         }
 
-        setFavorites((prev) => new Set(prev).add(key))
+        setFavorites((prev) => new Set(prev).add(key)) // Actualiza el estado local
       } catch (error) {
         console.error(error)
         throw error
       }
     },
-    []
+    [favorites] // Asegúrate de que 'favorites' esté actualizado
   )
+
 
   const toggleFavorite = useCallback(
     async (key: string) => {
