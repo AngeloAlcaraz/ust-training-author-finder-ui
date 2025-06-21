@@ -25,15 +25,18 @@ export const FavoritesService = {
     // Verificar que el email del usuario es el correcto
     console.log('User email passed to addFavorite:', userEmail); // Agregar un log para verificar el email
 
-    // Crear el objeto con el `addedBy` correcto
-    const requestPayload = { ...favorite, addedBy: userEmail };
+    // Verificación de birthDate: si está vacío, asignar una fecha por defecto
+    const birthDate = favorite.birthDate ? favorite.birthDate : '2000-01-01';
 
-    // Verificar que `addedBy` está correctamente incluido en el objeto
+    // Crear el objeto con el `addedBy` correcto y el valor de `birthDate` adecuado
+    const requestPayload = { ...favorite, addedBy: userEmail, birthDate };
+
+    // Verificar que `addedBy` y `birthDate` están correctamente incluidos en el objeto
     console.log('Request payload to send:', requestPayload);  // Imprimir el objeto antes de enviarlo
 
     const response = await axios.post<FavoriteAuthorResponse>(
       API_BASE_URL,
-      requestPayload, // Asegúrate de que addedBy esté correctamente agregado
+      requestPayload, // Asegúrate de que addedBy y birthDate estén correctamente agregados
       {
         headers: {
           'Content-Type': 'application/json',

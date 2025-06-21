@@ -113,7 +113,9 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
 
         if (authorData.birth_date) {
-          payload.birthDate = authorData.birth_date
+          payload.birthDate = authorData.birth_date; // Asume que birth_date está en formato adecuado
+        } else {
+          payload.birthDate = '2000-01-01'; // Fecha predeterminada si no hay birthDate
         }
 
         if (authorData.death_date) {
