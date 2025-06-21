@@ -27,13 +27,15 @@ const FavoritesPage = () => {
   if (!context) {
     throw new Error('FavoritesContext must be used within a FavoritesProvider')
   }
-  const { toggleFavorite } = context
+  const { toggleFavorite, isFavorite } = context
 
   // Estado para lista con datos completos
   const [favoriteAuthors, setFavoriteAuthors] = useState<FavoriteAuthorResponse[]>([])
   const [loading, setLoading] = useState(true)
 
   const [searchTerm, setSearchTerm] = useState<string>('')
+  const [page, setPage] = useState<number>(1)
+  const itemsPerPage = 8
 
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<React.ReactNode>(null)
@@ -51,7 +53,7 @@ const FavoritesPage = () => {
       }
       try {
         const favs = await FavoritesService.getFavorites(userEmail)
-        setFavoriteAuthors(favs) // Guarda los favoritos cargados
+        setFavoriteAuthors(favs)
       } catch (error) {
         console.error('Error loading favorites', error)
       } finally {
@@ -61,27 +63,21 @@ const FavoritesPage = () => {
     loadFavorites()
   }, [])
 
-  // Verificar si un autor está en los favoritos
-  const isFavoriteAuthor = (authorId: string) => {
-    return favoriteAuthors.some(author => author.authorId === authorId)
-  }
-
   // Filtrado y paginado
-  const [page, setPage] = useState(1)
-
   const filteredFavorites = Array.isArray(favoriteAuthors)
     ? favoriteAuthors.filter(author =>
-        author.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      author.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
     : []
 
-  const totalPages = Math.ceil(filteredFavorites.length / 8)
+  const totalPages = Math.ceil(filteredFavorites.length / itemsPerPage)
   const paginatedFavorites = filteredFavorites.slice(
-    (page - 1) * 8, page * 8
+    (page - 1) * itemsPerPage,
+    page * itemsPerPage
   )
 
-  const showNotification = (authorId: string) => {
-    const currentlyFavorite = isFavoriteAuthor(authorId) // Verificar si es favorito
+  const showNotification = (key: string) => {
+    const currentlyFavorite = isFavorite(key)
     if (currentlyFavorite) {
       setToastMessage(
         <>
@@ -121,11 +117,18 @@ const FavoritesPage = () => {
           value={searchTerm}
           onChange={(e) => {
             setSearchTerm(e.target.value)
+            setPage(1)
           }}
           slotProps={{
             input: {
               startAdornment: <SearchIcon color="action" />,
             },
+          }}
+          sx={{
+            backgroundColor: paginatedFavorites.length === 0 && searchTerm.trim() ? '#f5f5f5' : '#fff',
+            transition: 'background-color 0.3s ease',
+            maxWidth: 1160,
+            mx: 'auto',
           }}
         />
       </Box>
@@ -138,7 +141,7 @@ const FavoritesPage = () => {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'flex-start', minHeight: 200 }}>
           {paginatedFavorites.map((author) => {
             const favoriteLoading = loadingFavoriteKey === author.authorId
-            const key = author.authorId
+            const key = `/authors/${author.authorId}`
             return (
               <Card
                 key={key}
@@ -211,7 +214,10 @@ const FavoritesPage = () => {
                           }
                         } catch {
                           setToastMessage(
-                            <CancelIcon color="error" sx={{ mr: 1, verticalAlign: 'middle' }} />
+                            <>
+                              <CancelIcon color="error" sx={{ mr: 1, verticalAlign: 'middle' }} />
+                              Error adding/removing favorite
+                            </>
                           )
                           setToastSeverity('error')
                           setToastOpen(true)
@@ -219,7 +225,7 @@ const FavoritesPage = () => {
                           setLoadingFavoriteKey(null)
                         }
                       }}
-                      aria-label={isFavoriteAuthor(key) ? 'Remove from favorites' : 'Add to favorites'}
+                      aria-label={isFavorite(key) ? 'Remove from favorites' : 'Add to favorites'}
                       style={{
                         background: 'none',
                         border: 'none',
@@ -235,7 +241,7 @@ const FavoritesPage = () => {
                       {favoriteLoading ? (
                         <CircularProgress size={20} />
                       ) : (
-                        <FavoriteIcon color={isFavoriteAuthor(key) ? 'error' : 'disabled'} />
+                        <FavoriteIcon color={isFavorite(key) ? 'error' : 'disabled'} />
                       )}
                     </button>
                   </Box>
@@ -269,6 +275,15 @@ const FavoritesPage = () => {
             shape="rounded"
             showFirstButton
             showLastButton
+            sx={{
+              '& .MuiPaginationItem-root': {
+                borderRadius: 2,
+                transition: 'background-color 0.3s',
+                '&:hover': {
+                  backgroundColor: '#e3f2fd',
+                },
+              },
+            }}
           />
         </Box>
       )}
