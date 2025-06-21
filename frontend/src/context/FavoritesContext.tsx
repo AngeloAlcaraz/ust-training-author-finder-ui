@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react'
 
 interface FavoritesContextType {
   favorites: Set<string>
@@ -9,13 +16,12 @@ interface FavoritesContextType {
 export const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined)
 
 export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Estado inicial vacío, ya que cargaremos del backend
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
 
-  // Carga los favoritos desde backend al montar
   useEffect(() => {
     const loadFavorites = async () => {
       const userEmail = localStorage.getItem('userEmail') ?? ''
+      console.log('userEmail from localStorage:', userEmail);
       const token = localStorage.getItem('accessToken') ?? ''
       if (!userEmail || !token) return
 
@@ -25,12 +31,19 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             Authorization: `Bearer ${token}`,
           },
         })
+
         if (!res.ok) throw new Error('Failed to load favorites')
-        const data = await res.json()
-        // data es array de favoritos, extraemos claves para Set
-        const keys = data.map((fav: any) => `/authors/${fav.authorId}`)
+
+        const result = await res.json()
+        const favoritesArray = result.data
+
+        if (!Array.isArray(favoritesArray)) {
+          console.error('La propiedad "data" no es un array:', favoritesArray)
+          return
+        }
+
+        const keys = favoritesArray.map((fav: any) => `/authors/${fav.authorId}`)
         setFavorites(new Set(keys))
-        // También actualiza localStorage
         localStorage.setItem('favorites', JSON.stringify(keys))
       } catch (error) {
         console.error('Error loading favorites', error)
@@ -40,106 +53,120 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     loadFavorites()
   }, [])
 
-  // Sincroniza con localStorage cada vez que cambia favorites
   useEffect(() => {
     localStorage.setItem('favorites', JSON.stringify(Array.from(favorites)))
   }, [favorites])
 
   const isFavorite = useCallback((key: string) => favorites.has(key), [favorites])
 
-  const removeFavorite = useCallback(async (key: string, userEmail: string, token: string | null, authorId: string) => {
-    if (token) {
+  const removeFavorite = useCallback(
+    async (key: string, userEmail: string, token: string | null, authorId: string) => {
+      if (token) {
+        try {
+          const res = await fetch(
+            `http://13.221.227.133:4000/api/v1/favorites/${userEmail}/${authorId}`,
+            {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          )
+          if (!res.ok) {
+            throw new Error('Failed to remove favorite')
+          }
+        } catch (error) {
+          console.error(error)
+          throw error
+        }
+      }
+      setFavorites((prev) => {
+        const next = new Set(prev)
+        next.delete(key)
+        return next
+      })
+    },
+    []
+  )
+
+  const addFavorite = useCallback(
+    async (key: string, userEmail: string, token: string | null, authorId: string) => {
       try {
-        const res = await fetch(`http://13.221.227.133:4000/api/v1/favorites/${userEmail}/${authorId}`, {
-          method: 'DELETE',
+        const res = await fetch(`https://openlibrary.org/authors/${authorId}.json`)
+        if (!res.ok) throw new Error('Failed to fetch author data')
+        const authorData = await res.json()
+
+        const payload: Record<string, any> = {
+          authorId,
+          name: authorData.name,
+          addedBy: userEmail,
+          addedAt: new Date().toISOString(),
+        }
+
+        if (authorData.photos?.length) {
+          payload.imageUrl = `https://covers.openlibrary.org/b/id/${authorData.photos[0]}-M.jpg`
+        }
+
+        if (authorData.birth_date) {
+          payload.birthDate = authorData.birth_date
+        }
+
+        if (authorData.death_date) {
+          payload.deathDate = authorData.death_date
+        }
+
+        if (authorData.top_work) {
+          payload.topWork = authorData.top_work
+        }
+
+        const apiRes = await fetch('http://13.221.227.133:4000/api/v1/favorites', {
+          method: 'POST',
           headers: {
+            'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify(payload),
         })
-        if (!res.ok) {
-          throw new Error('Failed to remove favorite')
+
+        if (!apiRes.ok) {
+          const errorData = await apiRes.json()
+          throw new Error(errorData.message ?? 'Failed to add favorite')
         }
+
+        setFavorites((prev) => new Set(prev).add(key))
       } catch (error) {
         console.error(error)
         throw error
       }
-    }
-    setFavorites(prev => {
-      const next = new Set(prev)
-      next.delete(key)
-      return next
-    })
-  }, [])
+    },
+    []
+  )
 
-  const addFavorite = useCallback(async (key: string, userEmail: string, token: string | null, authorId: string) => {
-    try {
-      const res = await fetch(`https://openlibrary.org/authors/${authorId}.json`)
-      if (!res.ok) throw new Error('Failed to fetch author data')
-      const authorData = await res.json()
+  const toggleFavorite = useCallback(
+    async (key: string) => {
+      const currentlyFavorite = favorites.has(key)
+      const userEmail = localStorage.getItem('userEmail') ?? 'unknown_user'
+      const token = localStorage.getItem('accessToken')
+      const authorId = key.replace('/authors/', '')
 
-      const payload: Record<string, any> = {
-        authorId,
-        name: authorData.name,
-        addedBy: userEmail,
-        addedAt: new Date().toISOString(),
+      if (currentlyFavorite) {
+        await removeFavorite(key, userEmail, token, authorId)
+        return
       }
 
-      if (authorData.photos?.length) {
-        payload.imageUrl = `https://covers.openlibrary.org/b/id/${authorData.photos[0]}-M.jpg`
-      }
+      await addFavorite(key, userEmail, token, authorId)
+    },
+    [favorites, removeFavorite, addFavorite]
+  )
 
-      if (authorData.birth_date) {
-        payload.birthDate = authorData.birth_date
-      }
-
-      if (authorData.death_date) {
-        payload.deathDate = authorData.death_date
-      }
-
-      if (authorData.top_work) {
-        payload.topWork = authorData.top_work
-      }
-
-      const apiRes = await fetch('http://13.221.227.133:4000/api/v1/favorites', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      })
-
-      if (!apiRes.ok) {
-        const errorData = await apiRes.json()
-        throw new Error(errorData.message ?? 'Failed to add favorite')
-      }
-
-      setFavorites(prev => new Set(prev).add(key))
-    } catch (error) {
-      console.error(error)
-      throw error
-    }
-  }, [])
-
-  const toggleFavorite = useCallback(async (key: string) => {
-    const currentlyFavorite = favorites.has(key)
-    const userEmail = localStorage.getItem('userEmail') ?? 'unknown_user'
-    const token = localStorage.getItem('accessToken')
-    const authorId = key.replace('/authors/', '')
-
-    if (currentlyFavorite) {
-      await removeFavorite(key, userEmail, token, authorId)
-      return
-    }
-
-    await addFavorite(key, userEmail, token, authorId)
-  }, [favorites, removeFavorite, addFavorite])
-
-  const contextValue = useMemo(() => ({
-    favorites,
-    toggleFavorite,
-    isFavorite,
-  }), [favorites, toggleFavorite, isFavorite])
+  const contextValue = useMemo(
+    () => ({
+      favorites,
+      toggleFavorite,
+      isFavorite,
+    }),
+    [favorites, toggleFavorite, isFavorite]
+  )
 
   return (
     <FavoritesContext.Provider value={contextValue}>

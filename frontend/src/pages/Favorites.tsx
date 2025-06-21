@@ -64,9 +64,11 @@ const FavoritesPage = () => {
   }, [])
 
   // Filtrado y paginado
-  const filteredFavorites = favoriteAuthors.filter(author =>
-    author.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredFavorites = Array.isArray(favoriteAuthors)
+    ? favoriteAuthors.filter(author =>
+      author.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    : []
 
   const totalPages = Math.ceil(filteredFavorites.length / itemsPerPage)
   const paginatedFavorites = filteredFavorites.slice(
