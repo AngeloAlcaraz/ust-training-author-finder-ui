@@ -26,11 +26,11 @@ export const signup = async (userData: SignUpRequest): Promise<SignUpResponse> =
 
     if (!response.ok) {
       const errorMessage = result.message || 'Registration failed'
-      toast.error(`❌ ${errorMessage}`)
+      toast.error(`${errorMessage}`)
       throw new Error(errorMessage)
     }
 
-    toast.success('✅ Registration successful!')
+    toast.success('Registration successful!')
 
     const { accessToken, refreshToken, email } = result.data
 
@@ -47,7 +47,7 @@ export const signup = async (userData: SignUpRequest): Promise<SignUpResponse> =
 
   } catch (error: any) {
     const errorMessage = error.message ?? 'Something went wrong. Please try again.'
-    toast.error(`❌ ${errorMessage}`)
+    toast.error(`${errorMessage}`)
     throw new Error(errorMessage)
   }
 }
