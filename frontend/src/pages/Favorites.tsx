@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -6,13 +7,14 @@ import CardContent from '@mui/material/CardContent';
 import Avatar from '@mui/material/Avatar';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import SentimentVeryDissatisfiedIcon from '@mui/icons-material/SentimentVeryDissatisfied';
-import { IconButton } from '@mui/material';
+import { IconButton, Button } from '@mui/material';
 
 import { useFavorites } from '../context/FavoritesContext';
 
 const FavoritesPage = () => {
-  const { favorites, setFavorites } = useFavorites();
+  const { favorites, setFavorites } = useFavorites(); // Asegúrate de usar isFavorite
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate(); // Hook de navegación
 
   // Función para cargar los favoritos
   const loadFavorites = async () => {
@@ -60,7 +62,6 @@ const FavoritesPage = () => {
     }
 
     try {
-      // Hacer la solicitud DELETE a la API para eliminar el favorito
       const res = await fetch(`http://13.221.227.133:4000/api/v1/favorites/${userEmail}/${authorId}`, {
         method: 'DELETE',
         headers: {
@@ -80,12 +81,17 @@ const FavoritesPage = () => {
 
       // Eliminar del localStorage
       const updatedFavoritesArray = Array.from(favorites).filter((fav: any) => fav.authorId !== authorId);
-      localStorage.setItem('favorites', JSON.stringify(updatedFavoritesArray)); // Actualiza el localStorage
+      localStorage.setItem('favorites', JSON.stringify(updatedFavoritesArray));
 
     } catch (error) {
       console.error('Error removing favorite:', error);
       setError('Error al eliminar el favorito');
     }
+  };
+
+  // Función para ir a la página de detalles
+  const onDetailsClick = (authorId: string) => {
+    navigate(`/authors/${authorId}`);
   };
 
   useEffect(() => {
@@ -208,13 +214,24 @@ const FavoritesPage = () => {
                 </Typography>
 
                 <Box sx={{ textAlign: 'center', mt: 2 }}>
-                  <IconButton
+                   <IconButton
                     size="small"
                     color="error"
-                    onClick={() => handleRemoveFavorite(author.authorId)} // Pasa solo el authorId
+                    onClick={() => handleRemoveFavorite(author.authorId)} // Elimina el favorito
                   >
                     <FavoriteIcon fontSize="large" />
                   </IconButton>
+                </Box>
+
+                {/* Botón de detalles */}
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => onDetailsClick(author.authorId)} // Redirige a la página de detalles
+                  >
+                    Details
+                  </Button>
                 </Box>
               </CardContent>
             </Card>
