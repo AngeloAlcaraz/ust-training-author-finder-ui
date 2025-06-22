@@ -23,6 +23,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CancelIcon from '@mui/icons-material/Cancel'
 
 import { useFavorites } from '../context/FavoritesContext'
+import { IconButton } from '@mui/material'
 
 interface Author {
   key: string
@@ -241,7 +242,7 @@ const AuthorsPage = () => {
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <button
+                        <IconButton
                           type="button"
                           onClick={() => handleToggleFavorite(author.key)}
                           aria-label={isFavorite(author.key) ? 'Remove from favorites' : 'Add to favorites'}
@@ -256,11 +257,11 @@ const AuthorsPage = () => {
                           }}
                         >
                           {isFavorite(author.key) ? (
-                            <FavoriteIcon color="error" />
+                            <FavoriteIcon color="error"   />
                           ) : (
                             <FavoriteBorderIcon color="error" />
                           )}
-                        </button>
+                        </IconButton>
                       </Box>
                       {author.birth_date && (
                         <Typography color="text.secondary" sx={{ mt: 1 }}>

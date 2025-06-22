@@ -236,7 +236,7 @@ const FavoritesPage = () => {
                       }
                     }}
                   >
-                    <FavoriteIcon fontSize="large" />
+                    <FavoriteIcon />
                   </IconButton>
 
                 </Box>
