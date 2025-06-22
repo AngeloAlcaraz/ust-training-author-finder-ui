@@ -8,8 +8,11 @@ import Avatar from '@mui/material/Avatar';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import SentimentVeryDissatisfiedIcon from '@mui/icons-material/SentimentVeryDissatisfied';
 import { IconButton, Button, TextField, Pagination, InputAdornment } from '@mui/material';
+import PersonIcon from '@mui/icons-material/Person';  // Importamos el ícono de persona
+import CancelIcon from '@mui/icons-material/Cancel'; // Importa el ícono de cancelación
 
 import { useFavorites } from '../context/FavoritesContext';
+import ToastNotification from '../components/ToastNotification'; // Importa el ToastNotification
 
 const FavoritesPage = () => {
   const { favorites, setFavorites } = useFavorites();
@@ -18,6 +21,7 @@ const FavoritesPage = () => {
   const [filteredFavorites, setFilteredFavorites] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8); // Puedes cambiar el número de elementos por página
+  const [openToast, setOpenToast] = useState(false); // Controlar el estado del toast
   const navigate = useNavigate();
 
   // Función para cargar los favoritos
@@ -83,6 +87,9 @@ const FavoritesPage = () => {
       const updatedFavoritesArray = Array.from(favorites).filter((fav: any) => fav.authorId !== authorId);
       localStorage.setItem('favorites', JSON.stringify(updatedFavoritesArray));
 
+      // Mostrar el Toast al eliminar un favorito
+      setOpenToast(true);
+
     } catch (error) {
       console.error('Error removing favorite:', error);
       setError('Error al eliminar el favorito');
@@ -128,6 +135,13 @@ const FavoritesPage = () => {
 
   return (
     <Box sx={{ py: 4, px: 2, maxWidth: 1130, mx: 'auto' }}>
+      {/* Botón Back */}
+      <Box sx={{ mb: 3 }}>
+        <Button variant="outlined" onClick={() => navigate('/authors')}>
+          Back to Authors
+        </Button>
+      </Box>
+
       <Typography variant="h4" component="h1" gutterBottom textAlign="center" sx={{ color: '#666' }}>
         Favorite Authors
       </Typography>
@@ -177,7 +191,7 @@ const FavoritesPage = () => {
                     {author.imageUrl ? (
                       <img src={author.imageUrl} alt={author.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                     ) : (
-                      <FavoriteIcon fontSize="large" color="error" />
+                      <PersonIcon fontSize="large" color="primary" />
                     )}
                   </Avatar>
                   <Typography variant="h6" noWrap>{author.name}</Typography>
@@ -235,6 +249,22 @@ const FavoritesPage = () => {
           />
         </Box>
       )}
+
+      {/* Toast Notification */}
+      <ToastNotification
+        open={openToast}
+        onClose={() => setOpenToast(false)}
+        severity="error"
+        message={
+          <>
+            <CancelIcon color="error" sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Removed from favorites!
+          </>
+        }
+        autoHideDuration={3000}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} 
+      />
+
     </Box>
   );
 };

@@ -360,6 +360,8 @@ const AuthorsPage = () => {
         onClose={() => setToastOpen(false)}
         severity={toastSeverity}
         message={toastMessage}
+        autoHideDuration={3000}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} // Inferior derecha
       />
     </Box>
   )
