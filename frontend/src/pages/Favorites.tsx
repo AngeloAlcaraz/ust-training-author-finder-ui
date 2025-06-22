@@ -7,14 +7,18 @@ import CardContent from '@mui/material/CardContent';
 import Avatar from '@mui/material/Avatar';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import SentimentVeryDissatisfiedIcon from '@mui/icons-material/SentimentVeryDissatisfied';
-import { IconButton, Button } from '@mui/material';
+import { IconButton, Button, TextField, Pagination, InputAdornment } from '@mui/material';
 
 import { useFavorites } from '../context/FavoritesContext';
 
 const FavoritesPage = () => {
-  const { favorites, setFavorites } = useFavorites(); // Asegúrate de usar isFavorite
+  const { favorites, setFavorites } = useFavorites();
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate(); // Hook de navegación
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredFavorites, setFilteredFavorites] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(8); // Puedes cambiar el número de elementos por página
+  const navigate = useNavigate();
 
   // Función para cargar los favoritos
   const loadFavorites = async () => {
@@ -22,7 +26,7 @@ const FavoritesPage = () => {
     const token = localStorage.getItem('accessToken') ?? '';
 
     if (!userEmail || !token) {
-      console.log("User email or token is missing");
+      console.log('User email or token is missing');
       return;
     }
 
@@ -52,10 +56,8 @@ const FavoritesPage = () => {
     }
   };
 
-  // Llamada a la API para eliminar un favorito
   const handleRemoveFavorite = async (authorId: string) => {
-    const userEmail = localStorage.getItem('userEmail') ?? ''; // Obtener el email del usuario desde el localStorage
-
+    const userEmail = localStorage.getItem('userEmail') ?? '';
     if (!userEmail) {
       setError('User email is missing.');
       return;
@@ -65,7 +67,7 @@ const FavoritesPage = () => {
       const res = await fetch(`http://13.221.227.133:4000/api/v1/favorites/${userEmail}/${authorId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken') ?? ''}`,
+          Authorization: `Bearer ${localStorage.getItem('accessToken') ?? ''}`,
         },
       });
 
@@ -73,13 +75,11 @@ const FavoritesPage = () => {
         throw new Error('Failed to remove favorite');
       }
 
-      // Actualizar el estado de favoritos directamente sin necesidad de recargar la página
       setFavorites((prevFavorites) => {
         const updated = Array.from(prevFavorites).filter((favorite: any) => favorite.authorId !== authorId);
         return new Set(updated);
       });
 
-      // Eliminar del localStorage
       const updatedFavoritesArray = Array.from(favorites).filter((fav: any) => fav.authorId !== authorId);
       localStorage.setItem('favorites', JSON.stringify(updatedFavoritesArray));
 
@@ -89,14 +89,42 @@ const FavoritesPage = () => {
     }
   };
 
-  // Función para ir a la página de detalles
   const onDetailsClick = (authorId: string) => {
     navigate(`/authors/${authorId}`);
   };
 
+  // Filtro de autores basado en el nombre
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+  };
+
+  // Filtrar favoritos por nombre
   useEffect(() => {
-    loadFavorites(); // Llamamos a loadFavorites cuando el componente se monte
-  }, []); // Solo se ejecuta una vez al montar el componente
+    if (searchTerm.trim()) {
+      setFilteredFavorites(
+        Array.from(favorites).filter((author: any) =>
+          author.name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      );
+    } else {
+      setFilteredFavorites(Array.from(favorites));
+    }
+  }, [searchTerm, favorites]);
+
+  // Función para cambiar de página
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
+    setCurrentPage(value);
+  };
+
+  // Obtener favoritos por página
+  const currentFavorites = filteredFavorites.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    loadFavorites();
+  }, []);
 
   return (
     <Box sx={{ py: 4, px: 2, maxWidth: 1130, mx: 'auto' }}>
@@ -107,88 +135,52 @@ const FavoritesPage = () => {
         These are the authors you've marked as your favorites.
       </Typography>
 
+      {/* Barra de búsqueda con MUI */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
+        <TextField
+          label="Filter by author name"
+          variant="outlined"
+          fullWidth
+          value={searchTerm}
+          onChange={handleSearchChange}
+          sx={{ maxWidth: 1130 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <FavoriteIcon />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+      </Box>
+
       {error && (
         <Box sx={{ color: 'red', mb: 3, textAlign: 'center' }}>
           {error}
         </Box>
       )}
 
-      {favorites.size === 0 ? (
-        <Box
-          sx={{
-            width: '100%',
-            textAlign: 'center',
-            mt: 10,
-            color: '#999',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 1,
-          }}
-        >
+      {currentFavorites.length === 0 ? (
+        <Box sx={{ width: '100%', textAlign: 'center', mt: 10, color: '#999', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
           <SentimentVeryDissatisfiedIcon sx={{ fontSize: 60 }} />
           <Typography variant="h6">No favorites yet!</Typography>
         </Box>
       ) : (
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 3,
-            justifyContent: 'flex-start',
-            minHeight: 200,
-            position: 'relative',
-          }}
-        >
-          {Array.from(favorites).map((author: any) => (
-            <Card
-              key={author.authorId}
-              sx={{
-                flex: '0 0 calc(25% - 24px)',
-                maxWidth: '230px',
-                minWidth: '200px',
-                height: 320,
-                display: 'flex',
-                flexDirection: 'column',
-                p: 2,
-                borderRadius: 2,
-                border: '1px solid #e0e0e0',
-                backgroundColor: '#fff',
-                transition: 'all 0.3s ease',
-                '&:hover': { boxShadow: 6 },
-                overflowY: 'auto',
-                scrollbarWidth: 'thin',
-                '&::-webkit-scrollbar': {
-                  width: '6px',
-                  height: '6px',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: '#ccc',
-                  borderRadius: '3px',
-                },
-              }}
-            >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'flex-start', minHeight: 200 }}>
+          {currentFavorites.map((author: any) => (
+            <Card key={author.authorId} sx={{ flex: '0 0 calc(25% - 24px)', maxWidth: '230px', minWidth: '200px', height: 320, display: 'flex', flexDirection: 'column', p: 2, borderRadius: 2, border: '1px solid #e0e0e0', backgroundColor: '#fff', transition: 'all 0.3s ease', '&:hover': { boxShadow: 6 }, overflowY: 'auto' }}>
               <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'start' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                   <Avatar sx={{ bgcolor: '#f1f1f1', color: '#666', width: 50, height: 50 }}>
                     {author.imageUrl ? (
-                      <img
-                        src={author.imageUrl}
-                        alt={author.name}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          borderRadius: '50%',
-                        }}
-                      />
+                      <img src={author.imageUrl} alt={author.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                     ) : (
                       <FavoriteIcon fontSize="large" color="error" />
                     )}
                   </Avatar>
-                  <Typography variant="h6" noWrap>
-                    {author.name}
-                  </Typography>
+                  <Typography variant="h6" noWrap>{author.name}</Typography>
                 </Box>
 
                 {author.birthDate && (
@@ -214,28 +206,33 @@ const FavoritesPage = () => {
                 </Typography>
 
                 <Box sx={{ textAlign: 'center', mt: 2 }}>
-                   <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleRemoveFavorite(author.authorId)} // Elimina el favorito
-                  >
-                    <FavoriteIcon fontSize="large" />
-                  </IconButton>
-                </Box>
-
-                {/* Botón de detalles */}
-                <Box sx={{ textAlign: 'center', mt: 2 }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => onDetailsClick(author.authorId)} // Redirige a la página de detalles
-                  >
+                  <Button variant="outlined" size="small" onClick={() => onDetailsClick(author.authorId)}>
                     Details
                   </Button>
+                </Box>
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <IconButton size="small" color="error" onClick={() => handleRemoveFavorite(author.authorId)}>
+                    <FavoriteIcon fontSize="large" />
+                  </IconButton>
                 </Box>
               </CardContent>
             </Card>
           ))}
+        </Box>
+      )}
+
+      {/* Paginación MUI */}
+      {filteredFavorites.length > itemsPerPage && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <Pagination
+            count={Math.ceil(filteredFavorites.length / itemsPerPage)}
+            page={currentPage}
+            onChange={handlePageChange}
+            color="primary"
+            shape="rounded"
+            showFirstButton
+            showLastButton
+          />
         </Box>
       )}
     </Box>
