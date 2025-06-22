@@ -1,6 +1,8 @@
 import React from 'react'
 import Snackbar from '@mui/material/Snackbar'
 import Alert, { type AlertColor } from '@mui/material/Alert'
+import CloseIcon from '@mui/icons-material/Close'; // Importamos el CloseIcon
+import IconButton from '@mui/material/IconButton'; // Para el ícono de cierre
 
 interface ToastNotificationProps {
   open: boolean
@@ -29,11 +31,26 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({
       onClose={onClose}
       anchorOrigin={anchorOrigin}
     >
-      <Alert onClose={onClose} severity={severity} sx={{ width: '100%' }} icon={false}>
+      <Alert 
+        onClose={onClose} 
+        severity={severity} 
+        sx={{ width: '100%' }} 
+        icon={false}
+        action={
+          <IconButton 
+            size="small" 
+            color="inherit" 
+            onClick={onClose} 
+            aria-label="close"
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        }
+      >
         {message}
       </Alert>
     </Snackbar>
   )
 }
 
-export default ToastNotification
+export default ToastNotification;

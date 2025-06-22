@@ -1,312 +1,282 @@
-import React, { useContext, useState, useEffect } from 'react'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import TextField from '@mui/material/TextField'
-import Pagination from '@mui/material/Pagination'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Avatar from '@mui/material/Avatar'
-import FavoriteIcon from '@mui/icons-material/Favorite'
-import Button from '@mui/material/Button'
-import PersonIcon from '@mui/icons-material/Person'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import SearchIcon from '@mui/icons-material/Search'
-import CancelIcon from '@mui/icons-material/Cancel'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import CircularProgress from '@mui/material/CircularProgress'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Avatar from '@mui/material/Avatar';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import SentimentVeryDissatisfiedIcon from '@mui/icons-material/SentimentVeryDissatisfied';
+import { IconButton, Button, TextField, Pagination, InputAdornment } from '@mui/material';
+import PersonIcon from '@mui/icons-material/Person';  // Importamos el ícono de persona
+import CancelIcon from '@mui/icons-material/Cancel'; // Importa el ícono de cancelación
 
-// Importa contexto y componentes
-import { FavoritesContext } from '../context/FavoritesContext'
-import ToastNotification from '../components/ToastNotification'
-import { FavoritesService, type FavoriteAuthorResponse } from '../services/favorites-service'
+import { useFavorites } from '../context/FavoritesContext';
+import ToastNotification from '../components/ToastNotification'; // Importa el ToastNotification
 
 const FavoritesPage = () => {
-  const navigate = useNavigate()
-  const context = useContext(FavoritesContext)
-  if (!context) {
-    throw new Error('FavoritesContext must be used within a FavoritesProvider')
-  }
-  const { toggleFavorite, isFavorite } = context
+  const { favorites, setFavorites } = useFavorites();
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredFavorites, setFilteredFavorites] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(8); // Puedes cambiar el número de elementos por página
+  const [openToast, setOpenToast] = useState(false); // Controlar el estado del toast
+  const navigate = useNavigate();
 
-  // Estado para lista con datos completos
-  const [favoriteAuthors, setFavoriteAuthors] = useState<FavoriteAuthorResponse[]>([])
-  const [loading, setLoading] = useState(true)
+  // Función para cargar los favoritos
+  const loadFavorites = async () => {
+    const userEmail = localStorage.getItem('userEmail') ?? '';
+    const token = localStorage.getItem('accessToken') ?? '';
 
-  const [searchTerm, setSearchTerm] = useState<string>('')
-  const [page, setPage] = useState<number>(1)
-  const itemsPerPage = 8
+    if (!userEmail || !token) {
+      console.log('User email or token is missing');
+      return;
+    }
 
-  const [toastOpen, setToastOpen] = useState(false)
-  const [toastMessage, setToastMessage] = useState<React.ReactNode>(null)
-  const [toastSeverity, setToastSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('info')
+    try {
+      const encodedEmail = encodeURIComponent(userEmail);
+      const res = await fetch(`http://13.221.227.133:4000/api/v1/favorites/${encodedEmail}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-  const [loadingFavoriteKey, setLoadingFavoriteKey] = useState<string | null>(null)
+      if (!res.ok) throw new Error('Failed to load favorites');
 
-  // Carga favoritos reales desde backend al montar
+      const result = await res.json();
+      const favoritesArray = result.data;
+
+      if (!Array.isArray(favoritesArray)) {
+        console.error('La propiedad "data" no es un array:', favoritesArray);
+        return;
+      }
+
+      setFavorites(new Set(favoritesArray));
+      localStorage.setItem('favorites', JSON.stringify(favoritesArray));
+    } catch (error) {
+      console.error('Error loading favorites', error);
+      setError('Error loading favorites');
+    }
+  };
+
+  const handleRemoveFavorite = async (authorId: string) => {
+    const userEmail = localStorage.getItem('userEmail') ?? '';
+    if (!userEmail) {
+      setError('User email is missing.');
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://13.221.227.133:4000/api/v1/favorites/${userEmail}/${authorId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken') ?? ''}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to remove favorite');
+      }
+
+      setFavorites((prevFavorites) => {
+        const updated = Array.from(prevFavorites).filter((favorite: any) => favorite.authorId !== authorId);
+        return new Set(updated);
+      });
+
+      const updatedFavoritesArray = Array.from(favorites).filter((fav: any) => fav.authorId !== authorId);
+      localStorage.setItem('favorites', JSON.stringify(updatedFavoritesArray));
+
+      // Mostrar el Toast al eliminar un favorito
+      setOpenToast(true);
+
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+      setError('Error al eliminar el favorito');
+    }
+  };
+
+  const onDetailsClick = (authorId: string) => {
+    navigate(`/authors/${authorId}`);
+  };
+
+  // Filtro de autores basado en el nombre
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+  };
+
+  // Filtrar favoritos por nombre
   useEffect(() => {
-    const loadFavorites = async () => {
-      const userEmail = localStorage.getItem('userEmail') ?? ''
-      if (!userEmail) {
-        setLoading(false)
-        return
-      }
-      try {
-        const favs = await FavoritesService.getFavorites(userEmail)
-        setFavoriteAuthors(favs)
-      } catch (error) {
-        console.error('Error loading favorites', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadFavorites()
-  }, [])
-
-  // Filtrado y paginado
-  const filteredFavorites = Array.isArray(favoriteAuthors)
-    ? favoriteAuthors.filter(author =>
-      author.name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    : []
-
-  const totalPages = Math.ceil(filteredFavorites.length / itemsPerPage)
-  const paginatedFavorites = filteredFavorites.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage
-  )
-
-  const showNotification = (key: string) => {
-    const currentlyFavorite = isFavorite(key)
-    if (currentlyFavorite) {
-      setToastMessage(
-        <>
-          <CancelIcon color="error" sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Removed from favorites
-        </>
-      )
-      setToastSeverity('error')
+    if (searchTerm.trim()) {
+      setFilteredFavorites(
+        Array.from(favorites).filter((author: any) =>
+          author.name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      );
     } else {
-      setToastMessage(
-        <>
-          <CheckCircleIcon color="success" sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Added to favorites
-        </>
-      )
-      setToastSeverity('success')
+      setFilteredFavorites(Array.from(favorites));
     }
-    setToastOpen(true)
-  }
+  }, [searchTerm, favorites]);
+
+  // Función para cambiar de página
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
+    setCurrentPage(value);
+  };
+
+  // Obtener favoritos por página
+  const currentFavorites = filteredFavorites.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    loadFavorites();
+  }, []);
 
   return (
     <Box sx={{ py: 4, px: 2, maxWidth: 1130, mx: 'auto' }}>
-      <Typography variant="h4" component="h1" gutterBottom textAlign="center" sx={{ color: '#666' }}>
-        My Favorite Authors
-      </Typography>
-
-      <Typography variant="body1" textAlign="center" color="text.secondary" sx={{ mb: 3 }}>
-        These are the authors you've marked as favorites.
-      </Typography>
-
-      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 4, flexWrap: 'wrap' }}>
-        <TextField
-          label="Search by author name"
-          placeholder="Search by author name"
-          variant="outlined"
-          fullWidth
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value)
-            setPage(1)
-          }}
-          slotProps={{
-            input: {
-              startAdornment: <SearchIcon color="action" />,
-            },
-          }}
-          sx={{
-            backgroundColor: paginatedFavorites.length === 0 && searchTerm.trim() ? '#f5f5f5' : '#fff',
-            transition: 'background-color 0.3s ease',
-            maxWidth: 1160,
-            mx: 'auto',
-          }}
-        />
-      </Box>
-
-      {loading ? (
-        <Box sx={{ width: '100%', textAlign: 'center', mt: 6 }}>
-          <CircularProgress size={40} />
-        </Box>
-      ) : (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'flex-start', minHeight: 200 }}>
-          {paginatedFavorites.map((author) => {
-            const favoriteLoading = loadingFavoriteKey === author.authorId
-            const key = `/authors/${author.authorId}`
-            return (
-              <Card
-                key={key}
-                sx={{
-                  flex: '0 0 calc(25% - 24px)',
-                  maxWidth: '230px',
-                  minWidth: '200px',
-                  height: 320,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  p: 2,
-                  borderRadius: 2,
-                  border: '1px solid #e0e0e0',
-                  backgroundColor: '#fff',
-                  transition: 'all 0.3s ease',
-                  '&:hover': { boxShadow: 6 },
-                  overflowY: 'auto',
-                  scrollbarWidth: 'thin',
-                  '&::-webkit-scrollbar': {
-                    width: '6px',
-                    height: '6px',
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    background: '#ccc',
-                    borderRadius: '3px',
-                  },
-                }}
-              >
-                <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'start' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Avatar
-                      src={author.imageUrl}
-                      sx={{ bgcolor: '#f1f1f1', color: '#666', width: 50, height: 50 }}
-                    >
-                      <PersonIcon fontSize="large" color="action" />
-                    </Avatar>
-                    <Typography variant="h6" noWrap>
-                      {author.name}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Birth Date: {author.birthDate || 'Unknown'}
-                    </Typography>
-                    {author.deathDate && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        Death Date: {author.deathDate}
-                      </Typography>
-                    )}
-                    {author.topWork && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        Top Work: {author.topWork}
-                      </Typography>
-                    )}
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      disabled={favoriteLoading}
-                      onClick={async () => {
-                        setLoadingFavoriteKey(author.authorId)
-                        try {
-                          await toggleFavorite(key)
-                          showNotification(key)
-                          // Actualizar la lista local tras toggle, recargando
-                          const userEmail = localStorage.getItem('userEmail') ?? ''
-                          if (userEmail) {
-                            const updatedFavs = await FavoritesService.getFavorites(userEmail)
-                            setFavoriteAuthors(updatedFavs)
-                          }
-                        } catch {
-                          setToastMessage(
-                            <>
-                              <CancelIcon color="error" sx={{ mr: 1, verticalAlign: 'middle' }} />
-                              Error adding/removing favorite
-                            </>
-                          )
-                          setToastSeverity('error')
-                          setToastOpen(true)
-                        } finally {
-                          setLoadingFavoriteKey(null)
-                        }
-                      }}
-                      aria-label={isFavorite(key) ? 'Remove from favorites' : 'Add to favorites'}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        cursor: favoriteLoading ? 'wait' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        outline: 'none',
-                        minWidth: 24,
-                        minHeight: 24,
-                      }}
-                    >
-                      {favoriteLoading ? (
-                        <CircularProgress size={20} />
-                      ) : (
-                        <FavoriteIcon color={isFavorite(key) ? 'error' : 'disabled'} />
-                      )}
-                    </button>
-                  </Box>
-                </CardContent>
-                <Box sx={{ textAlign: 'center', mt: 1 }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<ArrowBackIcon />}
-                    onClick={() => navigate(`/authors/${author.authorId}`)}
-                  >
-                    Details
-                  </Button>
-                </Box>
-              </Card>
-            )
-          })}
-        </Box>
-      )}
-
-      {totalPages > 1 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 2 }}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={(_event, value) => {
-              setPage(value)
-              window.scrollTo({ top: 0, behavior: 'smooth' })
-            }}
-            color="primary"
-            shape="rounded"
-            showFirstButton
-            showLastButton
-            sx={{
-              '& .MuiPaginationItem-root': {
-                borderRadius: 2,
-                transition: 'background-color 0.3s',
-                '&:hover': {
-                  backgroundColor: '#e3f2fd',
-                },
-              },
-            }}
-          />
-        </Box>
-      )}
-
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(-1)}
-        >
+      {/* Botón Back */}
+      <Box sx={{ mb: 3 }}>
+        <Button variant="outlined" onClick={() => navigate('/authors')}>
           Back to Authors
         </Button>
       </Box>
 
+      <Typography variant="h4" component="h1" gutterBottom textAlign="center" sx={{ color: '#666' }}>
+        Favorite Authors
+      </Typography>
+      <Typography variant="body1" textAlign="center" color="text.secondary" sx={{ mb: 3 }}>
+        These are the authors you've marked as your favorites.
+      </Typography>
+
+      {/* Barra de búsqueda con MUI */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
+        <TextField
+          label="Filter by author name"
+          variant="outlined"
+          fullWidth
+          value={searchTerm}
+          onChange={handleSearchChange}
+          sx={{ maxWidth: 1130 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <FavoriteIcon />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+      </Box>
+
+      {error && (
+        <Box sx={{ color: 'red', mb: 3, textAlign: 'center' }}>
+          {error}
+        </Box>
+      )}
+
+      {currentFavorites.length === 0 ? (
+        <Box sx={{ width: '100%', textAlign: 'center', mt: 10, color: '#999', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <SentimentVeryDissatisfiedIcon sx={{ fontSize: 60 }} />
+          <Typography variant="h6">No favorites yet!</Typography>
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'flex-start', minHeight: 200 }}>
+          {currentFavorites.map((author: any) => (
+            <Card key={author.authorId} sx={{ flex: '0 0 calc(25% - 24px)', maxWidth: '230px', minWidth: '200px', height: 320, display: 'flex', flexDirection: 'column', p: 2, borderRadius: 2, border: '1px solid #e0e0e0', backgroundColor: '#fff', transition: 'all 0.3s ease', '&:hover': { boxShadow: 6 }, overflowY: 'auto' }}>
+              <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'start' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <Avatar sx={{ bgcolor: '#f1f1f1', color: '#666', width: 50, height: 50 }}>
+                    {author.imageUrl ? (
+                      <img src={author.imageUrl} alt={author.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                    ) : (
+                      <PersonIcon fontSize="large" color="primary" />
+                    )}
+                  </Avatar>
+                  <Typography variant="h6" noWrap>{author.name}</Typography>
+                </Box>
+
+                {author.birthDate && (
+                  <Typography color="text.secondary" sx={{ mt: 1 }}>
+                    Born: {author.birthDate}
+                  </Typography>
+                )}
+
+                {author.deathDate && (
+                  <Typography color="text.secondary" sx={{ mt: 1 }}>
+                    Died: {author.deathDate}
+                  </Typography>
+                )}
+
+                {author.topWork && (
+                  <Typography variant="subtitle2" color="primary" sx={{ mt: 1, fontStyle: 'italic' }}>
+                    Top Work: {author.topWork}
+                  </Typography>
+                )}
+
+                <Typography color="text.secondary" sx={{ mt: 1 }}>
+                  Added: {new Date(author.addedAt).toLocaleDateString()}
+                </Typography>
+
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <Button variant="outlined" size="small" onClick={() => onDetailsClick(author.authorId)}>
+                    Details
+                  </Button>
+                </Box>
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => handleRemoveFavorite(author.authorId)}
+                    sx={{
+                      border: 'none',  // Elimina el borde
+                      '&:focus': {     // Elimina el borde cuando se enfoca
+                        outline: 'none'
+                      }
+                    }}
+                  >
+                    <FavoriteIcon />
+                  </IconButton>
+
+                </Box>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      )}
+
+      {/* Paginación MUI */}
+      {filteredFavorites.length > itemsPerPage && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <Pagination
+            count={Math.ceil(filteredFavorites.length / itemsPerPage)}
+            page={currentPage}
+            onChange={handlePageChange}
+            color="primary"
+            shape="rounded"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
+      )}
+
+      {/* Toast Notification */}
       <ToastNotification
-        open={toastOpen}
-        onClose={() => setToastOpen(false)}
-        severity={toastSeverity}
-        message={toastMessage}
+        open={openToast}
+        onClose={() => setOpenToast(false)}
+        severity="error"
+        message={
+          <>
+            <CancelIcon color="error" sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Removed from favorites!
+          </>
+        }
+        autoHideDuration={3000}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       />
     </Box>
-  )
-}
+  );
+};
 
-export default FavoritesPage
+export default FavoritesPage;

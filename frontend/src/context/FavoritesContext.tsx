@@ -11,6 +11,9 @@ interface FavoritesContextType {
   favorites: Set<string>
   toggleFavorite: (key: string) => Promise<void>
   isFavorite: (key: string) => boolean
+  removeFavorite: (key: string, userEmail: string, token: string | null, authorId: string) => Promise<void>
+  addFavorite: (key: string, userEmail: string, token: string | null, authorId: string) => Promise<void>
+  setFavorites: React.Dispatch<React.SetStateAction<Set<string>>>
 }
 
 export const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined)
@@ -21,7 +24,6 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     const loadFavorites = async () => {
       const userEmail = localStorage.getItem('userEmail') ?? ''
-      console.log('userEmail from localStorage:', userEmail);
       const token = localStorage.getItem('accessToken') ?? ''
       if (!userEmail || !token) return
 
@@ -92,8 +94,8 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const addFavorite = useCallback(
     async (key: string, userEmail: string, token: string | null, authorId: string) => {
       if (favorites.has(key)) {
-        console.log('El favorito ya existe.');
-        return; // No intentar agregar si ya existe
+        console.log('El favorito ya existe.')
+        return // No intentar agregar si ya existe
       }
 
       try {
@@ -113,9 +115,9 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
 
         if (authorData.birth_date) {
-          payload.birthDate = authorData.birth_date; // Asume que birth_date está en formato adecuado
+          payload.birthDate = authorData.birth_date
         } else {
-          payload.birthDate = '2000-01-01'; // Fecha predeterminada si no hay birthDate
+          payload.birthDate = '2000-01-01' // Fecha predeterminada si no hay birthDate
         }
 
         if (authorData.death_date) {
@@ -140,15 +142,14 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           throw new Error(errorData.message ?? 'Failed to add favorite')
         }
 
-        setFavorites((prev) => new Set(prev).add(key)) // Actualiza el estado local
+        setFavorites((prev) => new Set(prev).add(key))
       } catch (error) {
         console.error(error)
         throw error
       }
     },
-    [favorites] // Asegúrate de que 'favorites' esté actualizado
+    [favorites]
   )
-
 
   const toggleFavorite = useCallback(
     async (key: string) => {
@@ -172,8 +173,11 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       favorites,
       toggleFavorite,
       isFavorite,
+      removeFavorite, // Asegúrate de pasar removeFavorite
+      addFavorite,    // Asegúrate de pasar addFavorite
+      setFavorites,   // Add setFavorites to context value
     }),
-    [favorites, toggleFavorite, isFavorite]
+    [favorites, toggleFavorite, isFavorite, removeFavorite, addFavorite, setFavorites]
   )
 
   return (
