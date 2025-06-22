@@ -225,9 +225,20 @@ const FavoritesPage = () => {
                   </Button>
                 </Box>
                 <Box sx={{ textAlign: 'center', mt: 2 }}>
-                  <IconButton size="small" color="error" onClick={() => handleRemoveFavorite(author.authorId)}>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => handleRemoveFavorite(author.authorId)}
+                    sx={{
+                      border: 'none',  // Elimina el borde
+                      '&:focus': {     // Elimina el borde cuando se enfoca
+                        outline: 'none'
+                      }
+                    }}
+                  >
                     <FavoriteIcon fontSize="large" />
                   </IconButton>
+
                 </Box>
               </CardContent>
             </Card>
@@ -262,7 +273,7 @@ const FavoritesPage = () => {
           </>
         }
         autoHideDuration={3000}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} 
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       />
     </Box>
   );
